@@ -296,8 +296,8 @@ class ContextualLogger:
         if msg != self._last_warning:
             self._last_warning = msg
             return self._logger.log(logging.WARNING, msg, *args)
-        # else:
-        #     self.info(msg)
+        else:
+            self.info(msg)
 
     def error(self, msg, *args):
         """Error level log."""
@@ -821,7 +821,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
             spayload = json.dumps(payload)
             # spayload = payload.replace('\"','').replace('\'','')
         except Exception:
-            spayload = '""'
+            spayload = binascii.hexlify(payload)
 
         vals = (error_codes[number], str(number), spayload)
         self.debug("ERROR %s - %s - payload: %s", *vals)
@@ -845,7 +845,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                     return
                 for cid, device in listener.sub_devices.items():
                     if cid not in on_devs:
-                        self.debug(f"Sub-device disconnected: {cid}")
+                        device.warning(f"Sub-device disconnected: {cid}")
                         device.disconnected()
             except asyncio.CancelledError:
                 pass
@@ -969,7 +969,10 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
 
     def connection_lost(self, exc):
         """Disconnected from device."""
-        self.debug("Connection lost: %s", exc, force=True)
+        if exc is not None:
+            self.info("Connection lost: %s", exc)
+        else:
+            self.debug("Connection lost: %s", exc, force=True)
         try:
             listener = self.listener and self.listener()
             if listener is not None:
@@ -1264,8 +1267,9 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                 try:
                     payload = payload.decode()
                 except Exception as ex:
-                    self.debug("payload was not string type and decoding failed")
-                    return self.error_json(ERR_JSON, payload)
+                    json_payload = self.error_json(ERR_JSON, payload)
+                    self.error(f"payload was not string type and decoding failed\n{json_payload}")
+                    return json_payload
 
             if "data unvalid" in payload:
                 if self.version <= 3.3:

@@ -256,13 +256,14 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
 
             self._connect_task = None
             self._quick_retry = False
-            self.debug(f"Success: connected to: {host}", force=True)
+            self.info(f"{"Connected as gateway" if self.sub_devices else "Success: connected"} to: {host}")
 
             if self.sub_devices:
                 for subdevice in self.sub_devices.values():
                     self._hass.async_create_task(subdevice.async_connect())
 
                 self._interface.start_sub_devices_heartbeat()
+                self.warning(f"Sub-devices heartbeat started {host}")
 
             if not self._status and "0" in self._device_config.manual_dps.split(","):
                 self.status_updated(RESTORE_STATES)
@@ -438,9 +439,9 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
             return
 
         if self.is_subdevice:
-            self.warning(f"Sub-device disconnected from: {self._device_config.host}")
+            self.info(f"Sub-device disconnected from: {self._device_config.host}")
         else:
-            self.warning(f"Disconnected: waiting for discovery broadcast")
+            self.info(f"Disconnected: waiting for discovery broadcast")
 
         signal = f"localtuya_{self._device_config.id}"
         dispatcher_send(self._hass, signal, None)
