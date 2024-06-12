@@ -466,8 +466,11 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
         self._interface = None
 
         if self.sub_devices:
+            self.warning(f"Disconnected as gateway")
             for sub_dev in self.sub_devices.values():
                 sub_dev.disconnected()
+        else:
+            self.info(f"Disconnected")
 
         if self._connect_task is not None:
             self._connect_task.cancel()
