@@ -191,6 +191,8 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
                 await self.abort_connect()
                 if retry >= self._connect_max_tries and not self.is_sleep:
                     self.warning(f"Failed to connect to {host}: {str(ex)}")
+                if retry < self._connect_max_tries and not self.is_sleep:
+                    self.info(f"Failed {retry} to connect to {host}: {str(ex)}")
                 if "key" in str(ex):
                     update_localkey = True
                     break
@@ -450,6 +452,7 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
     def status_updated(self, status: dict):
         """Device updated status."""
         if self._fake_gateway:
+            self.info(f"Fake gateway status update: {status}")
             # Fake gateways are only used to pass commands no need to update status.
             return
         self._last_update_time = int(time.time())

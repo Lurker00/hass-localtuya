@@ -76,7 +76,7 @@ class TuyaDiscovery(asyncio.DatagramProtocol):
         #     lambda: self, local_addr=("0.0.0.0", 7000), reuse_port=True
         # )
         self._listeners = await asyncio.gather(listener, encrypted_listener)
-        _LOGGER.debug("Listening to broadcasts on UDP port 6666, 6667")
+        _LOGGER.info("Listening to broadcasts on UDP port 6666, 6667")
 
     def close(self):
         """Stop discovery."""
@@ -95,7 +95,7 @@ class TuyaDiscovery(asyncio.DatagramProtocol):
             self.device_found(decoded)
         except:
             # _LOGGER.debug("Bordcast from app from ip: %s", addr[0])
-            _LOGGER.debug("Failed to decode bordcast from %r: %r", addr[0], data)
+            _LOGGER.warning("Failed to decode broadcast from %r: %r", addr[0], data)
 
     def device_found(self, device):
         """Discover a new device."""
@@ -112,7 +112,7 @@ class TuyaDiscovery(asyncio.DatagramProtocol):
             )
             self.devices = dict(sort_devices)
 
-            _LOGGER.debug("Discovered device: %s", device)
+            _LOGGER.info("Discovered device: %s", device)
         if self._callback:
             self._callback(device)
 

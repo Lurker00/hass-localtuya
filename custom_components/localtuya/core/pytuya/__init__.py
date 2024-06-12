@@ -603,7 +603,7 @@ class MessageDispatcher(ContextualLogger):
     async def wait_for(self, seqno, cmd, timeout=5):
         """Wait for response to a sequence number to be received and return it."""
         if seqno in self.listeners:
-            self.debug(f"listener exists for {seqno}")
+            self.warning(f"listener exists for {seqno}")
             if seqno == self.HEARTBEAT_SEQNO:
                 raise Exception(f"listener exists for {seqno}")
 
@@ -701,7 +701,7 @@ class MessageDispatcher(ContextualLogger):
                 )
                 self.callback_status_update(msg, ack=True)
             elif msg.seqno not in self.listeners:
-                self.debug(
+                self.info(
                     "Got message type %d for unknown listener %d: %s",
                     msg.cmd,
                     msg.seqno,
