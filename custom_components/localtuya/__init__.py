@@ -466,6 +466,8 @@ def reconnectTask(hass: HomeAssistant, entry: ConfigEntry):
             if check_if_device_disabled(hass, entry, dev_id):
                 continue
             if not dev.connected:
+                if not dev.is_sleep:
+                    dev.info("Reconnecting...")
                 asyncio.create_task(dev.async_connect())
 
     # Add unsub callbeack in unsub_listeners object.
