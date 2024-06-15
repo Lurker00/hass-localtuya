@@ -86,7 +86,7 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
             self._default_reset_dpids = [int(id.strip()) for id in reset_dps.split(",")]
 
         dev = self._device_config
-        self.set_logger(_LOGGER, dev.id, dev.enable_debug, dev.name)
+        self.set_logger(_LOGGER, dev.id, dev.enable_debug, dev.name if not fake_gateway else (dev.name +"/G"))
 
         # This has to be done in case the device type is type_0d
         for dp in self._device_config.dps_strings:
@@ -164,7 +164,11 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
         retry = 0
         update_localkey = False
 
-        self.debug(f"Trying to connect to: {host}...", force=True)
+        if self.is_sleep or self.is_subdevice:
+            self.debug(f"Trying to connect to: {host}...", force=True)
+        else:
+            self.info(f"Trying to connect to: {host}...")
+
         while retry < self._connect_max_tries:
             retry += 1
             try:
