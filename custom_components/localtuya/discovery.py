@@ -97,7 +97,7 @@ class TuyaDiscovery(asyncio.DatagramProtocol):
             self.device_found(decoded)
         except:
             # _LOGGER.debug("Bordcast from app from ip: %s", addr[0])
-            _LOGGER.debug("Failed to decode bordcast from %r: %r", addr[0], data)
+            _LOGGER.warning("Failed to decode broadcast from %r: %r", addr[0], data)
 
     def device_found(self, device):
         """Discover a new device."""
@@ -114,7 +114,7 @@ class TuyaDiscovery(asyncio.DatagramProtocol):
             )
             self.devices = dict(sort_devices)
 
-            _LOGGER.debug("Discovered device: %s", device)
+            _LOGGER.info("Discovered device: %s", device)
         if self._callback:
             self._callback(device)
 

@@ -89,7 +89,7 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
             self._default_reset_dpids = [int(id.strip()) for id in reset_dps.split(",")]
 
         dev = self._device_config
-        self.set_logger(_LOGGER, dev.id, dev.enable_debug, dev.name)
+        self.set_logger(_LOGGER, dev.id, dev.enable_debug, dev.name if not fake_gateway else (dev.name +"/G"))
 
         # This has to be done in case the device type is type_0d
         for dp in self._device_config.dps_strings:
@@ -174,7 +174,11 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
         max_retries = 3
         update_localkey = False
 
-        self.debug(f"Trying to connect to: {host}...", force=True)
+        if self.is_sleep or self.is_subdevice:
+            self.debug(f"Trying to connect to: {host}...", force=True)
+        else:
+            self.info(f"Trying to connect to: {host}...")
+
         # Connect to the device, interface should be connected for next steps.
         while retry < max_retries:
             retry += 1
@@ -209,6 +213,8 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
                 await self.abort_connect()
                 if retry >= max_retries and not self.is_sleep:
                     self.warning(f"Failed to connect to {host}: {str(ex)}")
+                if retry < max_retries and not self.is_sleep:
+                    self.info(f"Failed {retry} to connect to {host}: {str(ex)}")
                 if "key" in str(ex):
                     update_localkey = True
                     break
@@ -273,13 +279,14 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
                 )
 
             self._connect_task = None
-            self.debug(f"Success: connected to: {host}", force=True)
+            self.info(f"Success: connected to: {host}")
 
             if self.sub_devices:
                 for subdevice in self.sub_devices.values():
                     self._hass.async_create_task(subdevice.async_connect())
 
                 self._interface.start_sub_devices_heartbeat()
+                self.warning(f"Sub-devices heartbeat started {host}")
 
             if not self._status and "0" in self._device_config.manual_dps.split(","):
                 self.status_updated(RESTORE_STATES)
@@ -477,6 +484,7 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
     def status_updated(self, status: dict):
         """Device updated status."""
         if self._fake_gateway:
+            self.info(f"Fake gateway status update: {status}")
             # Fake gateways are only used to pass commands no need to update status.
             return
         self._last_update_time = int(time.time())
@@ -496,8 +504,11 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
             self._unsub_refresh()
 
         if self.sub_devices:
+            self.warning(f"Disconnected: {exc}")
             for sub_dev in self.sub_devices.values():
                 sub_dev.disconnected("Gateway disconnected")
+        else:
+            self.info(f"Disconnected: {exc}")
 
         if self._connect_task is not None:
             self._connect_task.cancel("Device disconnected")
@@ -539,8 +550,8 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
                 self.debug(f"Reconnect task has been canceled: {e}", force=True)
                 break
 
-            if self.connected:
-                self.debug(f"Reconnect succeeded on attempt: {attempts}", force=True)
+            if self.connected and not self.is_sleep and attempts > 0:
+                self.info(f"Reconnect succeeded on attempt: {attempts}")
                 break
 
             attempts += 1

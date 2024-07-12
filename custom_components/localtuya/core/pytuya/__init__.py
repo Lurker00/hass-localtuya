@@ -298,8 +298,8 @@ class ContextualLogger:
         if msg != self._last_warning:
             self._last_warning = msg
             return self._logger.log(logging.WARNING, msg, *args)
-        # else:
-        #     self.info(msg)
+        else:
+            self.info(msg)
 
     def error(self, msg, *args):
         """Error level log."""
@@ -605,7 +605,7 @@ class MessageDispatcher(ContextualLogger):
     async def wait_for(self, seqno, cmd, timeout=5):
         """Wait for response to a sequence number to be received and return it."""
         if seqno in self.listeners:
-            self.debug(f"listener exists for {seqno}")
+            self.warning(f"listener exists for {seqno}")
             if seqno == self.HEARTBEAT_SEQNO:
                 raise Exception(f"listener exists for {seqno}")
 
@@ -824,12 +824,12 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
             spayload = json.dumps(payload)
             # spayload = payload.replace('\"','').replace('\'','')
         except Exception:
-            spayload = '""'
+            spayload = binascii.hexlify(payload)
 
         vals = (error_codes[number], str(number), spayload)
         self.debug("ERROR %s - %s - payload: %s", *vals)
 
-        return json.loads('{ "Error":"%s", "Err":"%s", "Payload":%s }' % vals)
+        return json.loads('{ "Error":"%s", "Err":"%s", "Payload":"%s" }' % vals)
 
     def _msg_subdevs_query(self, decoded_message):
         """
@@ -964,6 +964,8 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                     if self.transport is None:
                         break
 
+            self.info(f"Sub-devices heartbeat stopped")
+
         if not self.sub_devices_hb:
             self.sub_devices_hb = self.loop.create_task(loop())
 
@@ -974,7 +976,10 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
 
     def connection_lost(self, exc):
         """Disconnected from device."""
-        self.debug("Connection lost: %s", exc, force=True)
+        if exc is not None:
+            self.info("Connection lost: %s", exc)
+        else:
+            self.debug("Connection lost: %s", exc, force=True)
 
         listener = self.listener and self.listener()
         self.clean_up_session()
@@ -1274,8 +1279,9 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                 try:
                     payload = payload.decode()
                 except Exception as ex:
-                    self.debug("payload was not string type and decoding failed")
-                    return self.error_json(ERR_JSON, payload)
+                    json_payload = self.error_json(ERR_JSON, payload)
+                    self.error(f"payload was not string type and decoding failed\n{json_payload}")
+                    return json_payload
 
             if "data unvalid" in payload:
                 if self.version <= 3.3:
