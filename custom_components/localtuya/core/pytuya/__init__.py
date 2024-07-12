@@ -703,7 +703,7 @@ class MessageDispatcher(ContextualLogger):
                 )
                 self.callback_status_update(msg, ack=True)
             elif msg.seqno not in self.listeners:
-                self.debug(
+                self.info(
                     "Got message type %d for unknown listener %d: %s",
                     msg.cmd,
                     msg.seqno,
