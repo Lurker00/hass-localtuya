@@ -925,8 +925,8 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
             self.debug("Started heartbeat loop")
             while True:
                 try:
-                    # if self.last_command_sent > self.HEARTBEAT_SKIP:
-                    await self.heartbeat()
+                    if self.last_command_sent > self.HEARTBEAT_SKIP:
+                        await self.heartbeat()
                     await asyncio.sleep(HEARTBEAT_INTERVAL)
                 except asyncio.CancelledError:
                     self.debug("Stopped heartbeat loop")
