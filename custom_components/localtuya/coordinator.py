@@ -69,7 +69,6 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
         self._fake_gateway = fake_gateway
         self._gateway: TuyaDevice = None
         self.sub_devices: dict[str, TuyaDevice] = {}
-        self.sub_device_online = True
 
         self._status = {}
         # Sleep timer, a device that reports the status every x seconds then goes into sleep.
@@ -81,6 +80,7 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
         self._connect_task: asyncio.Task | None = None
         self._unsub_refresh: CALLBACK_TYPE | None = None
         self._reconnect_task = False
+        self._online = True
         self._call_on_close: list[CALLBACK_TYPE] = []
         self._entities = []
         self._local_key: str = self._device_config.local_key
@@ -531,10 +531,6 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
         attempts = 0
         while True and not self._is_closing:
             # for sub-devices, if the gateway isn't connected then no need for reconnect.
-            if self.is_subdevice and not self.sub_device_online:
-                self.warning(f"Sub deivce is offline")
-                await asyncio.sleep(10)
-                continue
             if self._gateway and (
                 not self._gateway.connected or self._gateway.is_connecting
             ):
@@ -558,3 +554,15 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
             await asyncio.sleep(RECONNECT_INTERVAL.total_seconds())
 
         self._reconnect_task = False
+
+    @callback
+    def online(self, is_online):
+        """Device is offline or online."""
+        if is_online == self._online:
+            return
+
+        self._online = is_online
+        self.warning("Sub-device is " + ("online" if is_online else "offline"))
+# It has no sense to disconnect when sub-device went offline!
+#        if not is_online:
+#            self.disconnected("Device is offline")
