@@ -830,12 +830,12 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
             spayload = json.dumps(payload)
             # spayload = payload.replace('\"','').replace('\'','')
         except Exception:
-            spayload = binascii.hexlify(payload)
+            spayload = '""'
 
         vals = (error_codes[number], str(number), spayload)
         self.debug("ERROR %s - %s - payload: %s", *vals)
 
-        return json.loads('{ "Error":"%s", "Err":"%s", "Payload":"%s" }' % vals)
+        return json.loads('{ "Error":"%s", "Err":"%s", "Payload":%s }' % vals)
 
     def _msg_subdevs_query(self, decoded_message):
         """
@@ -1280,9 +1280,8 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                 try:
                     payload = payload.decode()
                 except Exception as ex:
-                    json_payload = self.error_json(ERR_JSON, payload)
-                    self.error(f"payload was not string type and decoding failed\n{json_payload}")
-                    return json_payload
+                    self.debug("payload was not string type and decoding failed")
+                    return self.error_json(ERR_JSON, payload)
 
             if "data unvalid" in payload:
                 if self.version <= 3.3:
