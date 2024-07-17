@@ -484,7 +484,6 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
     def status_updated(self, status: dict):
         """Device updated status."""
         if self._fake_gateway:
-            self.info(f"Fake gateway status update: {status}")
             # Fake gateways are only used to pass commands no need to update status.
             return
         self._last_update_time = int(time.time())
