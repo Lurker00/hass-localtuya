@@ -32,10 +32,14 @@ from .const import (
     DeviceConfig,
     RESTORE_STATES,
 )
+from .core.pytuya import (
+    HEARTBEAT_INTERVAL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 RECONNECT_INTERVAL = timedelta(seconds=5)
-MIN_OFFLINE_EVENTS = 10 # Offline events before disconnecting the device
+# Offline events before disconnecting the device, around 5 minutes
+MIN_OFFLINE_EVENTS = 5 * 60 // HEARTBEAT_INTERVAL
 
 class HassLocalTuyaData(NamedTuple):
     """LocalTuya data stored in homeassistant data object."""
@@ -69,7 +73,6 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
         self._fake_gateway = fake_gateway
         self._gateway: TuyaDevice = None
         self.sub_devices: dict[str, TuyaDevice] = {}
-        self.sub_device_online = True
 
         self._status = {}
         # Sleep timer, a device that reports the status every x seconds then goes into sleep.
@@ -90,11 +93,17 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
             self._default_reset_dpids = [int(id.strip()) for id in reset_dps.split(",")]
 
         dev = self._device_config
-        self.set_logger(_LOGGER, dev.id, dev.enable_debug, dev.name)
+        self.set_logger(_LOGGER, dev.id, dev.enable_debug, self.friendly_name)
 
         # This has to be done in case the device type is type_0d
         for dp in self._device_config.dps_strings:
             self.dps_to_request[dp.split(" ")[0]] = None
+
+    @property
+    def friendly_name(self):
+        """Name string for log prefixes."""
+        name = self._device_config.name
+        return name if not self._fake_gateway else (name +"/G")
 
     def add_entities(self, entities):
         """Set the entities associated with this device."""
@@ -165,6 +174,17 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
             self.error(f"Couldn't find the gateway for: {self._node_id}")
         return None
 
+    async def _connect_subdevices(self):
+        """Connect to sub-devices one by one."""
+        if not self.sub_devices or not self.connected:
+            return
+        for subdevice in self.sub_devices.values():
+            await subdevice.async_connect()
+            if subdevice._connect_task:
+                await subdevice._connect_task
+            if not self.connected:
+                break
+
     async def _make_connection(self):
         """Subscribe localtuya entity events."""
         if self.is_sleep and not self._status:
@@ -186,7 +206,7 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
                         return await self.abort_connect()
                     self._interface = gateway._interface
                     if self._device_config.enable_debug:
-                        self._interface.enable_debug(True, gateway._device_config.name)
+                        self._interface.enable_debug(True, gateway.friendly_name)
                 else:
                     self._interface = await pytuya.connect(
                         self._device_config.host,
@@ -196,7 +216,7 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
                         self._device_config.enable_debug,
                         self,
                     )
-                    self._interface.enable_debug(self._device_config.enable_debug, name)
+                    self._interface.enable_debug(self._device_config.enable_debug, self.friendly_name)
                 self._interface.add_dps_to_request(self.dps_to_request)
                 break  # Succeed break while loop
             except OSError as e:
@@ -233,7 +253,6 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
                 if status is None:
                     raise Exception("Failed to retrieve status")
 
-                self._interface.start_heartbeat()
                 self.status_updated(status)
             except (UnicodeDecodeError, pytuya.DecodeError) as e:
                 self.exception(f"Handshake with {host} failed: due to {type(e)}: {e}")
@@ -276,17 +295,16 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
             self._connect_task = None
             self.debug(f"Success: connected to: {host}", force=True)
 
-            if self.sub_devices:
-                for subdevice in self.sub_devices.values():
-                    self._hass.async_create_task(subdevice.async_connect())
-
-                self._interface.start_sub_devices_heartbeat()
-
             if not self._status and "0" in self._device_config.manual_dps.split(","):
                 self.status_updated(RESTORE_STATES)
 
             if self._pending_status:
                 await self.set_status()
+
+            if self.sub_devices:
+                asyncio.create_task(self._connect_subdevices())
+
+            self._interface.start_heartbeat(self.sub_devices)
 
         # If not connected try to handle the errors.
         if not self.connected:
@@ -526,10 +544,6 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
                 continue
 
             # for sub-devices, if the gateway isn't connected then no need for reconnect.
-            if self.is_subdevice and not self.sub_device_online:
-                self.warning(f"Sub deivce is offline")
-                await asyncio.sleep(10)
-                continue
             if self._gateway and (
                 not self._gateway.connected or self._gateway.is_connecting
             ):
@@ -562,10 +576,10 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
         self._subdevice_off_count = 0 if is_online else off_count + 1
 
         if is_online:
-            return self.info("Sub-device is online") if off_count > 0 else None
+            return self.info(f"Sub-device is online {self._node_id}") if off_count > 0 else None
         else:
             off_count += 1
             if off_count == 1:
-                self.warning("Sub-device is offline")
+                self.warning(f"Sub-device is offline {self._node_id}")
             elif off_count >= MIN_OFFLINE_EVENTS:
                 self.disconnected("Device is offline")
