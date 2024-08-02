@@ -377,7 +377,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         dev_id = self._device_config.id
 
         cloud_api = self._hass_entry.cloud_data
-        await cloud_api.async_get_devices_list()
+        await cloud_api.async_get_devices_list(force_update=True)
 
         cloud_devs = cloud_api.device_list
         if not dev_id in cloud_devs:
