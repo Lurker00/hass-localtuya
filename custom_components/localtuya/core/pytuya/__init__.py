@@ -304,8 +304,8 @@ class ContextualLogger:
         if msg != self._last_warning:
             self._last_warning = msg
             return self._logger.log(logging.WARNING, msg, *args)
-        # else:
-        #     self.info(msg)
+        else:
+            self.info(msg)
 
     def error(self, msg, *args):
         """Error level log."""
@@ -611,7 +611,7 @@ class MessageDispatcher(ContextualLogger):
     async def wait_for(self, seqno, cmd, timeout=5):
         """Wait for response to a sequence number to be received and return it."""
         if seqno in self.listeners:
-            self.debug(f"listener exists for {seqno}")
+            self.warning(f"listener exists for {seqno}")
             if seqno == self.HEARTBEAT_SEQNO:
                 raise Exception(f"listener exists for {seqno}")
 
@@ -866,6 +866,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                     elif cid in off_devs:
                         device.subdevice_state(SubdeviceState.OFFLINE)
                     else:
+                        self.info(f"Sub-Device absent: {cid} {self.sub_devices_states}")
                         device.subdevice_state(SubdeviceState.ABSENT)
             except asyncio.CancelledError:
                 pass
@@ -1003,6 +1004,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
             await asyncio.sleep(0.010)
             wait += 1
             if wait >= 10:
+                self.warning("Write delay stopped")
                 break
 
         self._last_command_sent = time.time()
