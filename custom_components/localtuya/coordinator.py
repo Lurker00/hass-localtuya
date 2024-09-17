@@ -177,7 +177,11 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         max_retries = 3
         update_localkey = False
 
-        self.debug(f"Trying to connect to: {host}...", force=True)
+        if self.is_sleep or self.is_subdevice:
+            self.debug(f"Trying to connect to: {host}...", force=True)
+        else:
+            self.info(f"Trying to connect to: {host}...")
+
         # Connect to the device, interface should be connected for next steps.
         while retry < max_retries:
             retry += 1
@@ -286,7 +290,10 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             self._subdevice_absent = False
             self._subdevice_off_count = 0
 
-            self.debug(f"Success: connected to: {host}", force=True)
+            if self.sub_devices:
+                self.warning(f"Success: connected to: {host}")
+            else:
+                self.info(f"Success: connected to: {host}")
 
             if not self._status and "0" in self._device_config.manual_dps.split(","):
                 self.status_updated(RESTORE_STATES)
@@ -349,6 +356,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
     async def update_local_key(self):
         """Retrieve updated local_key from Cloud API and update the config_entry."""
+        self.info(f"Trying to update local-key...")
         dev_id = self._device_config.id
 
         cloud_api = self._hass_entry.cloud_data
@@ -548,8 +556,11 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             self._unsub_refresh()
 
         if self.sub_devices:
+            self.warning(f"Disconnected: {exc}")
             for sub_dev in self.sub_devices.values():
                 sub_dev.disconnected("Gateway disconnected")
+        else:
+            self.info(f"Disconnected: {exc}")
 
         if self._connect_task is not None:
             self._connect_task.cancel("Device disconnected")
@@ -588,7 +599,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         self._subdevice_off_count = 0 if is_online else off_count + 1
 
         if is_online:
-            return self.info(f"Device is online {node_id}") if off_count > 0 else None
+            return self.warning(f"Sub-device is online {node_id}") if off_count > 0 else None
         else:
             off_count += 1
             if off_count == 1:
