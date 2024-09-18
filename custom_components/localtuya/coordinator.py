@@ -92,6 +92,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         self._entities = []
         self._is_closing = False
         self._reconnect_task = False
+        self._log_connections_for_sleep = True
 
         self._default_reset_dpids: list | None = None
         dev = self._device_config
@@ -136,6 +137,18 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         is_sleep = last_update < device_sleep
 
         return device_sleep > 0 and is_sleep
+
+    @property
+    def _log_connections(self):
+        return not self.is_sleep or self._log_connections_for_sleep
+
+    def _log_connection_event(self, text):
+        if self.sub_devices:
+            self.warning(text)
+        elif self._log_connections:
+            self.info(text)
+        else:
+            self.debug(text, force=True)
 
     def add_entities(self, entities):
         """Set the entities associated with this device."""
@@ -254,6 +267,8 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                     await self.abort_connect()
                     if self.is_subdevice:
                         update_localkey = True
+                    else:
+                        self._log_connections_for_sleep = True
             except:
                 if self._fake_gateway:
                     self.warning(f"Failed to use {name} as gateway.")
@@ -290,10 +305,8 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             self._subdevice_absent = False
             self._subdevice_off_count = 0
 
-            if self.sub_devices:
-                self.warning(f"Success: connected to: {host}")
-            else:
-                self.info(f"Success: connected to: {host}")
+            self._log_connection_event(f"Success: connected to: {host}")
+            self._log_connections_for_sleep = False
 
             if not self._status and "0" in self._device_config.manual_dps.split(","):
                 self.status_updated(RESTORE_STATES)
@@ -555,12 +568,11 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         if self._unsub_refresh:
             self._unsub_refresh()
 
+        self._log_connection_event(f"Disconnected: {exc}")
+
         if self.sub_devices:
-            self.warning(f"Disconnected: {exc}")
             for sub_dev in self.sub_devices.values():
                 sub_dev.disconnected("Gateway disconnected")
-        else:
-            self.info(f"Disconnected: {exc}")
 
         if self._connect_task is not None:
             self._connect_task.cancel("Device disconnected")
