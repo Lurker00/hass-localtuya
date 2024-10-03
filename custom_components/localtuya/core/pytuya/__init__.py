@@ -1599,7 +1599,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
 
     @property
     def is_connected(self):
-        return not self.transport or not self.transport.is_closing()
+        return self.transport and not self.transport.is_closing()
 
     @property
     def last_command_sent(self):
