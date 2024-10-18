@@ -143,7 +143,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         return not self.is_sleep or self._log_connections_for_sleep
 
     def _log_connection_event(self, text):
-        if self.sub_devices:
+        if self.sub_devices and not self._is_closing:
             self.warning(text)
         elif self._log_connections:
             self.info(text)
