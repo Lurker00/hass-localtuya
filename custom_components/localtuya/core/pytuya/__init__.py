@@ -866,7 +866,6 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                     elif cid in off_devs:
                         device.subdevice_state(SubdeviceState.OFFLINE)
                     else:
-                        self.info(f"Sub-Device absent: {cid} {self.sub_devices_states}")
                         device.subdevice_state(SubdeviceState.ABSENT)
             except asyncio.CancelledError:
                 pass
