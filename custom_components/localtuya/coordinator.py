@@ -573,13 +573,13 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             return
 
         if self.is_subdevice:
-            self.warning(f"Sub-device disabled due to: {exc}")
+            self.warning(f"Sub-device unavailable due to: {exc}")
         elif hasattr(self, "low_power"):
             m, s = divmod((int(time.time()) - self._last_update_time), 60)
             h, m = divmod(m, 60)
-            self.warning(f"Disabled because out of reach since: {h}h:{m}m:{s}s")
+            self.warning(f"Unavailable due to out of reach for: {h}h:{m}m:{s}s")
         else:
-            self.warning(f"Disabled due to: {exc}")
+            self.warning(f"Unavailable due to: {exc}")
 
         self._task_shutdown_entities = None
 
