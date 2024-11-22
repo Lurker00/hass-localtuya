@@ -95,6 +95,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
         self._entities = []
         self._is_closing = False
+        self._log_connections_for_sleep = True
 
         self._default_reset_dpids: list | None = None
         dev = self._device_config
@@ -140,6 +141,19 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
         return device_sleep > 0 and is_sleep
 
+    @property
+    def _log_connections(self):
+        return not self.is_sleep or self._log_connections_for_sleep
+
+    def _log_connection_event(self, text):
+        """Warnings for gateway disconnects, info or debug for other cases"""
+        if self.sub_devices and not self.connected and not self._is_closing:
+            self.warning(text)
+        elif self._log_connections:
+            self.info(text)
+        else:
+            self.debug(text, force=True)
+
     def add_entities(self, entities):
         """Set the entities associated with this device."""
         self._entities.extend(entities)
@@ -177,7 +191,11 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         max_retries = 3
         update_localkey = False
 
-        self.debug(f"Trying to connect to: {host}...", force=True)
+        if self.is_sleep or self.is_subdevice:
+            self.debug(f"Trying to connect to: {host}...", force=True)
+        else:
+            self.info(f"Trying to connect to: {host}...")
+
         # Connect to the device, interface should be connected for next steps.
         while retry < max_retries and not self._is_closing:
             retry += 1
@@ -260,6 +278,8 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                     await self.abort_connect()
                     if self.is_subdevice:
                         update_localkey = True
+                    else:
+                        self._log_connections_for_sleep = True
             except:
                 if self._fake_gateway:
                     self.warning(f"Failed to use {name} as gateway.")
@@ -268,7 +288,8 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
         # Connect and configure the entities, at this point the device should be ready to get commands.
         if self.connected and not self._is_closing:
-            self.debug(f"Success: connected to: {host}", force=True)
+            self._log_connection_event(f"Success: connected to: {host}")
+            self._log_connections_for_sleep = False
             # Attempt to restore status for all entities that need to first set
             # the DPS value before the device will respond with status.
             for entity in self._entities:
@@ -277,7 +298,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             if self._unsub_new_entity is None:
 
                 def _new_entity_handler(entity_id):
-                    self.debug(f"New entity {entity_id} was added to {host}")
+                    self.info(f"New entity {entity_id} was added to {host}")
                     self._dispatch_status()
 
                 signal = f"localtuya_entity_{self._device_config.id}"
@@ -363,10 +384,11 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             self._unsub_refresh = None
 
         await self.abort_connect()
-        self.debug("Closed connection", force=True)
+        self.info("Closed connection")
 
     async def update_local_key(self):
         """Retrieve updated local_key from Cloud API and update the config_entry."""
+        self.info(f"Trying to update local-key...")
         dev_id = self._device_config.id
 
         cloud_api = self._hass_entry.cloud_data
@@ -551,13 +573,13 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             return
 
         if self.is_subdevice:
-            self.info(f"Sub-device disconnected due to: {exc}")
+            self.warning(f"Sub-device disabled due to: {exc}")
         elif hasattr(self, "low_power"):
             m, s = divmod((int(time.time()) - self._last_update_time), 60)
             h, m = divmod(m, 60)
-            self.info(f"The device is still out of reach since: {h}h:{m}m:{s}s")
+            self.warning(f"Disabled because out of reach since: {h}h:{m}m:{s}s")
         else:
-            self.info(f"Disconnected due to: {exc}")
+            self.warning(f"Disabled due to: {exc}")
 
         self._task_shutdown_entities = None
 
@@ -583,6 +605,8 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         if self._unsub_refresh:
             self._unsub_refresh()
             self._unsub_refresh = None
+
+        self._log_connection_event(f"Disconnected: {exc}")
 
         for subdevice in self.sub_devices.values():
             subdevice.disconnected("Gateway disconnected")
