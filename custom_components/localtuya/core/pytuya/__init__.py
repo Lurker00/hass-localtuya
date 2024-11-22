@@ -304,8 +304,8 @@ class ContextualLogger:
         if msg != self._last_warning:
             self._last_warning = msg
             return self._logger.log(logging.WARNING, msg, *args)
-        # else:
-        #     self.info(msg)
+        else:
+            self.info(msg)
 
     def error(self, msg, *args):
         """Error level log."""
@@ -611,9 +611,9 @@ class MessageDispatcher(ContextualLogger):
     async def wait_for(self, seqno, cmd, timeout=5):
         """Wait for response to a sequence number to be received and return it."""
         if seqno in self.listeners:
-            self.debug(f"listener exists for {seqno}")
+            self.warning(f"listener exists for {seqno} cmd={cmd}")
             if seqno == self.HEARTBEAT_SEQNO:
-                raise Exception(f"listener exists for {seqno}")
+                raise Exception(f"listener exists for {seqno} cmd={cmd}")
 
         self.debug("Command %d waiting for seq. number %d", cmd, seqno)
         self.listeners[seqno] = asyncio.Semaphore(0)
