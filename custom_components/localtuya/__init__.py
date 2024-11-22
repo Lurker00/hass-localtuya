@@ -302,6 +302,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         )
         return
 
+    _LOGGER.info("Setup started")
     region = entry.data[CONF_REGION]
     client_id = entry.data[CONF_CLIENT_ID]
     secret = entry.data[CONF_CLIENT_SECRET]
@@ -370,6 +371,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     async def _shutdown(event):
         """Clean up resources when shutting down."""
+        _LOGGER.info("Shutdown started")
         for dev in connect_to_devices:
             await dev.close()
         _LOGGER.info("Shutdown completed")
@@ -385,6 +387,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unloading the Tuya platforms."""
     # Unload the platforms.
+    _LOGGER.info("Unload started")
     await hass.config_entries.async_unload_platforms(entry, PLATFORMS.values())
     hass.data[DOMAIN].pop(entry.entry_id)
 
