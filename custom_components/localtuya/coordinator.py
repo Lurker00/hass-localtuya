@@ -296,7 +296,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
         # Connect and configure the entities, at this point the device should be ready to get commands.
         if self.connected and not self.is_closing:
-            self._log_connection_event(f"Success: connected to: {host}")
+            self._log_connection_event(f"Connected to: {host}")
             self._log_connections_for_sleep = False
             # Attempt to restore status for all entities that need to first set
             # the DPS value before the device will respond with status.
