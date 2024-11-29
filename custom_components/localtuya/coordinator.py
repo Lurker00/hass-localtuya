@@ -234,6 +234,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                 await self.abort_connect()
                 if e.errno == errno.EHOSTUNREACH and not self.is_sleep:
                     self.warning(f"Connection failed: {e}")
+                    self._log_connections_for_sleep = True
                     break
             except Exception as ex:  # pylint: disable=broad-except
                 await self.abort_connect()
