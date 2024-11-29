@@ -474,7 +474,9 @@ def _run_async_listen(hass: HomeAssistant, entry: ConfigEntry):
 
         device_registry = dr.async_get(hass).async_get(event.data["device_id"])
 
-        if device_registry.primary_config_entry != entry.entry_id:
+        if (device_registry.primary_config_entry != entry.entry_id
+            or not device_registry.disabled
+        ):
             return
 
         hass_localtuya: HassLocalTuyaData = hass.data[DOMAIN][entry.entry_id]
@@ -487,7 +489,7 @@ def _run_async_listen(hass: HomeAssistant, entry: ConfigEntry):
 
         device = hass_localtuya.devices.get(host_ip)
 
-        if device and device_registry.disabled:
+        if device:
             # If this is a gateway or fake gateway then reload entry to start using another device as GW.
             if device.sub_devices or (device.gateway and device.gateway.id == dev_id):
                 await hass.config_entries.async_reload(entry.entry_id)
