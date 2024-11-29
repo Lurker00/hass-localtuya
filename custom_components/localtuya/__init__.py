@@ -492,8 +492,10 @@ def _run_async_listen(hass: HomeAssistant, entry: ConfigEntry):
         if device:
             # If this is a gateway or fake gateway then reload entry to start using another device as GW.
             if device.sub_devices or (device.gateway and device.gateway.id == dev_id):
+                device.info("Disabled gateway")
                 await hass.config_entries.async_reload(entry.entry_id)
             else:
+                device.info("Disabled")
                 await device.close()
 
     return hass.bus.async_listen(
