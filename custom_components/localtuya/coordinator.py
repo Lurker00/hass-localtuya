@@ -142,14 +142,24 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         return device_sleep > 0 and is_sleep
 
     @property
-    def _log_connections(self):
-        return not self.is_sleep or self._log_connections_for_sleep
+    def _warning_for_connection_event(self):
+        """For not connected gateways"""
+        return not self.is_closing and (
+            self.sub_devices and not self.connected
+        )
+
+    @property
+    def _info_for_connection_event(self):
+        """For not sleeping devices or after a failure"""
+        return not self.is_closing and (
+            not self.is_sleep or self._log_connections_for_sleep
+        )
 
     def _log_connection_event(self, text):
         """Warnings for gateway disconnects, info or debug for other cases"""
-        if self.sub_devices and not self.connected and not self.is_closing:
+        if self._warning_for_connection_event:
             self.warning(text)
-        elif self._log_connections:
+        elif self._info_for_connection_event:
             self.info(text)
         else:
             self.debug(text, force=True)
