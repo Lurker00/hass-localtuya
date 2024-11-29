@@ -155,15 +155,6 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             not self.is_sleep or self._log_connections_for_sleep
         )
 
-    @property
-    def _info_for_try_to_connect(self):
-        """For not sleeping devices or after a failure"""
-        return not self.is_closing and (
-            not self.is_subdevice and not (
-                self.is_sleep or self._log_connections_for_sleep
-            )
-        )
-
     def _log_connection_event(self, text):
         """Warnings for gateway disconnects, info or debug for other cases"""
         if self._warning_for_connection_event:
@@ -210,10 +201,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         max_retries = 3
         update_localkey = False
 
-        if self._info_for_try_to_connect:
-            self.info(f"Trying to connect to: {host}...")
-        else:
-            self.debug(f"Trying to connect to: {host}...", force=True)
+        self.debug(f"Trying to connect to: {host}...", force=True)
 
         # Connect to the device, interface should be connected for next steps.
         while retry < max_retries and not self.is_closing:
