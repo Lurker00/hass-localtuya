@@ -385,8 +385,8 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
         await self.abort_connect()
 
-        if self.gateway:
-            self.gateway.filter_subdevices()
+        if self.gateway and not self.gateway.is_closing:
+            self.gateway.sub_devices.pop(self._node_id)
         self.info("Closed connection")
 
     async def update_local_key(self):
