@@ -556,7 +556,7 @@ class LocalTuyaOptionsFlowHandler(config_entries.OptionsFlow):
             if dev_id in cloud_devs:
                 cloud_local_key = cloud_devs[dev_id].get(CONF_LOCAL_KEY)
                 if defaults[CONF_LOCAL_KEY] != cloud_local_key:
-                    _LOGGER.info(
+                    _LOGGER.warning(
                         "New local_key detected: new %s vs old %s",
                         cloud_local_key,
                         defaults[CONF_LOCAL_KEY],
