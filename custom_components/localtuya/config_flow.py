@@ -561,7 +561,7 @@ class LocalTuyaOptionsFlowHandler(config_entries.OptionsFlow):
                         cloud_local_key,
                         defaults[CONF_LOCAL_KEY],
                     )
-                    defaults[CONF_LOCAL_KEY] = cloud_devs[dev_id].get(CONF_LOCAL_KEY)
+                    defaults[CONF_LOCAL_KEY] = cloud_local_key
                     note = "\nNOTE: a new local_key has been retrieved using cloud API"
                     placeholders = {"for_device": f" for device `{dev_id}`.{note}"}
                     if self.nodeID:
