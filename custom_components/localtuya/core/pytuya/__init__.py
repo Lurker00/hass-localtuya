@@ -738,7 +738,7 @@ class TuyaListener(ABC):
         """Device updated status."""
 
     @abstractmethod
-    def disconnected(self, exc=""):
+    def disconnected(self, exc, from_gateway=False):
         """Device disconnected."""
 
     @abstractmethod
@@ -752,7 +752,7 @@ class EmptyListener(TuyaListener):
     def status_updated(self, status):
         """Device updated status."""
 
-    def disconnected(self, exc=""):
+    def disconnected(self, exc, from_gateway=False):
         """Device disconnected."""
 
     def subdevice_state_updated(self, state: SubdeviceState):
