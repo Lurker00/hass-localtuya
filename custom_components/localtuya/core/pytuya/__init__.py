@@ -189,8 +189,8 @@ NO_PROTOCOL_HEADER_CMDS = [
 ]
 
 HEARTBEAT_INTERVAL = 8.3
-TIMEOUT_CONNECT = 5 # was 3
-TIMEOUT_REPLY   = 5 # was 5
+TIMEOUT_CONNECT = 5
+TIMEOUT_REPLY   = 5
 
 # DPS that are known to be safe to use with update_dps (0x12) command
 UPDATE_DPS_WHITELIST = [18, 19, 20]  # Socket (Wi-Fi)
@@ -295,7 +295,7 @@ class ContextualLogger:
         return self._logger.log(logging.DEBUG, msg, *args)
 
     def info(self, msg, *args, clear_warning=False):
-        """Info level log. clear_warning to re-enable warings msgs if duplicated"""
+        """Info level log. clear_warning to re-enable warnings msgs if duplicated"""
         if clear_warning:
             self._last_warning = ""
 
@@ -872,7 +872,6 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                 pass
             self._sub_devs_query_task = None
 
-
         if (data := decoded_message.get("data")) and isinstance(data, dict):
             devs_states = self.sub_devices_states
             updated_states = {}
@@ -1318,7 +1317,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                     self.debug("payload was not string type and decoding failed")
                     return self.error_json(ERR_JSON, payload)
 
-            if "data unvalid" in payload:
+            if "data unvalid" in payload:  # codespell:ignore
                 if self.version <= 3.3:
                     self.dev_type = "type_0d"
                     self.debug(
