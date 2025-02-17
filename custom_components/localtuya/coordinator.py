@@ -24,6 +24,7 @@ from .core import pytuya
 from .core.cloud_api import TuyaCloudApi
 from .core.pytuya import (
     HEARTBEAT_INTERVAL,
+    TIMEOUT_CONNECT,
     TuyaListener,
     ContextualLogger,
     SubdeviceState,
