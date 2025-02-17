@@ -136,6 +136,8 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         device_sleep = self._device_config.sleep_time
         if device_sleep > 0:
             setattr(self, "low_power", True)
+        else:
+            return False
         last_update = time.time() - self._last_update_time
         is_sleep = last_update < device_sleep
 
