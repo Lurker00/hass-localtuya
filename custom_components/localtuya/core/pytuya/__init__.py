@@ -188,7 +188,7 @@ NO_PROTOCOL_HEADER_CMDS = [
     LAN_EXT_STREAM,
 ]
 
-HEARTBEAT_INTERVAL = 9
+HEARTBEAT_INTERVAL = 8.3
 TIMEOUT_CONNECT = 5 # was 3
 TIMEOUT_REPLY   = 5 # was 5
 
@@ -947,22 +947,33 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
             """Continuously send heart beat updates."""
             self.debug("Started keep alive loop.")
             fail_attempt = 0
+            delta = 0
             while True:
+                start = time.time()
                 try:
-                    await asyncio.sleep(HEARTBEAT_INTERVAL)
+                    await asyncio.sleep(HEARTBEAT_INTERVAL - delta)
                     await action()
                     fail_attempt = 0
                 except asyncio.CancelledError:
                     self.debug("Stopped heartbeat loop")
                     break
                 except asyncio.TimeoutError:
+                    if hasattr(self.listener and self.listener(), "low_power"):
+                        break
                     fail_attempt += 1
                     if fail_attempt >= 2:
-                        self.debug("Heartbeat failed due to timeout, disconnecting")
+                        self.info("Heartbeat failed due to timeout, disconnecting")
                         break
                 except Exception as ex:  # pylint: disable=broad-except
                     self.exception("Heartbeat failed (%s), disconnecting", ex)
                     break
+                delta = (time.time() - start) - HEARTBEAT_INTERVAL
+                if delta > (11-HEARTBEAT_INTERVAL):
+                    self.info(f"Delta {delta} fails {fail_attempt}")
+                if delta < 0:
+                    delta = 0
+                elif delta > HEARTBEAT_INTERVAL:
+                    delta = HEARTBEAT_INTERVAL
 
             self.heartbeater = None
             if self.transport is not None:
