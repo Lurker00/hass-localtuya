@@ -851,8 +851,6 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
 
         async def _action():
             try:
-                await asyncio.sleep(2)
-
                 self.debug(f"Sub-Devices States Update: {self.sub_devices_states}")
                 on_devs = self.sub_devices_states.get("online")
                 off_devs = self.sub_devices_states.get("offline")
@@ -866,6 +864,9 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                     elif cid in off_devs:
                         device.subdevice_state_updated(SubdeviceState.OFFLINE)
                     else:
+                        # ABSENT detection is weak, because, with many sub-devices,
+                        # the gateway provides them all in more than 1 reply. This
+                        # should be taken into account in device.subdevice_state_updated()
                         device.subdevice_state_updated(SubdeviceState.ABSENT)
             except asyncio.CancelledError:
                 pass
