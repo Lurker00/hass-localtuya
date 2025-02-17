@@ -189,6 +189,8 @@ NO_PROTOCOL_HEADER_CMDS = [
 ]
 
 HEARTBEAT_INTERVAL = 9
+TIMEOUT_CONNECT = 5 # was 3
+TIMEOUT_REPLY   = 5 # was 5
 
 # DPS that are known to be safe to use with update_dps (0x12) command
 UPDATE_DPS_WHITELIST = [18, 19, 20]  # Socket (Wi-Fi)
@@ -608,7 +610,7 @@ class MessageDispatcher(ContextualLogger):
             if isinstance(sem, asyncio.Semaphore):
                 sem.release()
 
-    async def wait_for(self, seqno, cmd, timeout=5):
+    async def wait_for(self, seqno, cmd, timeout=TIMEOUT_REPLY):
         """Wait for response to a sequence number to be received and return it."""
         if seqno in self.listeners:
             self.warning(f"listener exists for {seqno} cmd={cmd}")
@@ -1623,7 +1625,7 @@ async def connect(
     enable_debug,
     listener=None,
     port=6668,
-    timeout=5,
+    timeout=TIMEOUT_REPLY,
 ):
     """Connect to a device."""
     loop = asyncio.get_running_loop()
@@ -1642,7 +1644,7 @@ async def connect(
                 address,
                 port,
             ),
-            timeout=3,
+            timeout=TIMEOUT_CONNECT,
         )
     # Assuming the connect timed out then then the host isn't reachable.
     except (OSError, TimeoutError) as ex:
