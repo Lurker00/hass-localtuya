@@ -86,7 +86,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         self._subdevice_off_count: int = 0
 
         # last_update_time: Sleep timer, a device that reports the status every x seconds then goes into sleep.
-        self._last_update_time = time.time() - 5
+        self._last_update_time = time.monotonic() - 5
         self._pending_status: dict[str, dict[str, Any]] = {}
 
         self._task_connect: asyncio.Task | None = None
@@ -141,7 +141,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             setattr(self, "low_power", True)
         else:
             return False
-        last_update = time.time() - self._last_update_time
+        last_update = int(time.monotonic()) - self._last_update_time
         is_sleep = last_update < device_sleep
 
         return device_sleep > 0 and is_sleep
@@ -613,7 +613,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         if self.is_subdevice:
             self.warning(f"Sub-device unavailable due to: {exc}")
         elif hasattr(self, "low_power"):
-            m, s = divmod((int(time.time()) - self._last_update_time), 60)
+            m, s = divmod((int(time.monotonic()) - self._last_update_time), 60)
             h, m = divmod(m, 60)
             self.warning(f"Unavailable due to out of reach for: {h}h:{m}m:{s}s")
         else:
@@ -627,7 +627,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         if self._fake_gateway:
             # Fake gateways are only used to pass commands no need to update status.
             return
-        self._last_update_time = int(time.time())
+        self._last_update_time = int(time.monotonic())
 
         self._handle_event(self._status, status)
         self._status.update(status)
@@ -676,7 +676,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
 
         # This will trigger if state is absent twice.
         if old_state == state and state == SubdeviceState.ABSENT:
-            if time.time() - self._last_update_time >= 2 * HEARTBEAT_INTERVAL:
+            if time.monotonic() - self._last_update_time >= 2 * HEARTBEAT_INTERVAL:
                 self._subdevice_off_count = 0
                 self.disconnected("Device is absent")
             return
@@ -689,7 +689,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         off_count = self._subdevice_off_count
         self._subdevice_off_count = 0 if is_online else off_count + 1
         # For sub-devices, the last time it is known as not absent
-        self._last_update_time = int(time.time())
+        self._last_update_time = int(time.monotonic())
 
         if is_online:
             return self.info(f"Sub-device is online {node_id}") if off_count else None
