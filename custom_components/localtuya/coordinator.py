@@ -139,12 +139,10 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         device_sleep = self._device_config.sleep_time
         if device_sleep > 0:
             setattr(self, "low_power", True)
+            last_update = int(time.monotonic()) - self._last_update_time
+            return last_update < device_sleep
         else:
             return False
-        last_update = int(time.monotonic()) - self._last_update_time
-        is_sleep = last_update < device_sleep
-
-        return device_sleep > 0 and is_sleep
 
     @property
     def _warning_for_connection_event(self):
