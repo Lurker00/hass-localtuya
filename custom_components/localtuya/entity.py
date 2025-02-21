@@ -138,7 +138,7 @@ class LocalTuyaEntity(RestoreEntity, pytuya.ContextualLogger):
         self._state = None
         self._last_state = None
         self._stored_states: State | None = None
-        self._hass = device._hass
+        self._hass = device.hass
 
         # Default value is available to be provided by Platform entities if required
         self._default_value = self._config.get(CONF_DEFAULT_VALUE)

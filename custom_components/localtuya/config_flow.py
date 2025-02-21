@@ -41,8 +41,8 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 
-from .coordinator import pytuya, TuyaCloudApi
-from .core.cloud_api import TUYA_ENDPOINTS
+from .core import pytuya
+from .core.cloud_api import TUYA_ENDPOINTS, TuyaCloudApi
 from .core.helpers import templates, get_gateway_by_deviceid, gen_localtuya_entities
 from .const import (
     ATTR_UPDATED_AT,
