@@ -418,46 +418,6 @@ class TuyaDevice(TuyaListener, ContextualLogger):
             self.gateway.filter_subdevices()
         self.info("Closed connection")
 
-    async def update_local_key(self):
-        """Retrieve updated local_key from Cloud API and update the config_entry."""
-        self.info(f"Trying to update local-key...")
-        dev_id = self._device_config.id
-
-        cloud_api = self._hass_entry.cloud_data
-        await cloud_api.async_get_devices_list(force_update=True)
-
-        cloud_devs = cloud_api.device_list
-        if dev_id in cloud_devs:
-            cloud_localkey = cloud_devs[dev_id].get(CONF_LOCAL_KEY)
-            if not cloud_localkey or self._local_key == cloud_localkey:
-                return
-
-            new_data = self._entry.data.copy()
-            self._local_key = cloud_localkey
-
-            if self._node_id:
-                from .core.helpers import get_gateway_by_deviceid
-
-                # Update Node ID.
-                if new_node_id := cloud_devs[dev_id].get(CONF_NODE_ID):
-                    new_data[CONF_DEVICES][dev_id][CONF_NODE_ID] = new_node_id
-
-                # Update Gateway ID and IP
-                if new_gw := get_gateway_by_deviceid(dev_id, cloud_devs):
-                    self.info(f"Gateway ID has been updated to: {new_gw.id}")
-                    new_data[CONF_DEVICES][dev_id][CONF_GATEWAY_ID] = new_gw.id
-
-                    discovery = self._hass.data[DOMAIN].get(DATA_DISCOVERY)
-                    if discovery and (local_gw := discovery.devices.get(new_gw.id)):
-                        new_ip = local_gw.get(CONF_TUYA_IP, self._device_config.host)
-                        new_data[CONF_DEVICES][dev_id][CONF_HOST] = new_ip
-                        self.info(f"IP has been updated to: {new_ip}")
-
-            new_data[CONF_DEVICES][dev_id][CONF_LOCAL_KEY] = self._local_key
-            new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
-            self._hass.config_entries.async_update_entry(self._entry, data=new_data)
-            self.info(f"Local-key has been updated")
-
     async def set_status(self):
         """Send self._pending_status payload to device."""
         await self.check_connection()
@@ -550,6 +510,83 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         self._task_reconnect = None
         self._connect_attempts = 0
 
+    async def _shutdown_entities(self, exc=""):
+        """Shutdown device entities"""
+        # Delay shutdown.
+        if not self.is_closing:
+            try:
+                await asyncio.sleep(TIMEOUT_CONNECT + self._device_config.sleep_time)
+            except asyncio.CancelledError as e:
+                self.debug(f"Shutdown entities task has been canceled: {e}", force=True)
+                return
+
+            if self.connected or self.is_sleep:
+                self._task_shutdown_entities = None
+                return
+
+        signal = f"localtuya_{self._device_config.id}"
+        dispatcher_send(self._hass, signal, None)
+
+        if self.is_closing:
+            return
+
+        if self.is_subdevice:
+            self.warning(f"Sub-device unavailable due to: {exc}")
+        elif hasattr(self, "low_power"):
+            m, s = divmod((int(time.monotonic()) - self._last_update_time), 60)
+            h, m = divmod(m, 60)
+            self.warning(f"Unavailable due to out of reach for: {h}h:{m}m:{s}s")
+        else:
+            self.warning(f"Unavailable due to: {exc}")
+
+        self._task_shutdown_entities = None
+
+    async def update_local_key(self):
+        """Retrieve updated local_key from Cloud API and update the config_entry."""
+        self.info(f"Trying to update local-key...")
+        dev_id = self._device_config.id
+
+        cloud_api = self._hass_entry.cloud_data
+        await cloud_api.async_get_devices_list(force_update=True)
+
+        cloud_devs = cloud_api.device_list
+        if dev_id in cloud_devs:
+            cloud_localkey = cloud_devs[dev_id].get(CONF_LOCAL_KEY)
+            if not cloud_localkey or self._local_key == cloud_localkey:
+                return
+
+            new_data = self._entry.data.copy()
+            self._local_key = cloud_localkey
+
+            if self._node_id:
+                from .core.helpers import get_gateway_by_deviceid
+
+                # Update Node ID.
+                if new_node_id := cloud_devs[dev_id].get(CONF_NODE_ID):
+                    new_data[CONF_DEVICES][dev_id][CONF_NODE_ID] = new_node_id
+
+                # Update Gateway ID and IP
+                if new_gw := get_gateway_by_deviceid(dev_id, cloud_devs):
+                    self.info(f"Gateway ID has been updated to: {new_gw.id}")
+                    new_data[CONF_DEVICES][dev_id][CONF_GATEWAY_ID] = new_gw.id
+
+                    discovery = self._hass.data[DOMAIN].get(DATA_DISCOVERY)
+                    if discovery and (local_gw := discovery.devices.get(new_gw.id)):
+                        new_ip = local_gw.get(CONF_TUYA_IP, self._device_config.host)
+                        new_data[CONF_DEVICES][dev_id][CONF_HOST] = new_ip
+                        self.info(f"IP has been updated to: {new_ip}")
+
+            new_data[CONF_DEVICES][dev_id][CONF_LOCAL_KEY] = self._local_key
+            new_data[ATTR_UPDATED_AT] = str(int(time.time() * 1000))
+            self._hass.config_entries.async_update_entry(self._entry, data=new_data)
+            self.info(f"Local-key has been updated")
+
+    def filter_subdevices(self):
+        """Remove closed subdevices that are closed."""
+        self.sub_devices = dict(
+            filter(lambda dev: not dev[1].is_closing, self.sub_devices.items())
+        )
+
     def _dispatch_status(self):
         signal = f"localtuya_{self._device_config.id}"
         dispatcher_send(self._hass, signal, self._status)
@@ -588,36 +625,20 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                     data = {"dp": dpid_trigger, "value": dpid_value}
                     fire_event(event, data)
 
-    async def _shutdown_entities(self, exc=""):
-        """Shutdown device entities"""
-        # Delay shutdown.
-        if not self.is_closing:
-            try:
-                await asyncio.sleep(TIMEOUT_CONNECT + self._device_config.sleep_time)
-            except asyncio.CancelledError as e:
-                self.debug(f"Shutdown entities task has been canceled: {e}", force=True)
-                return
+    def _get_gateway(self):
+        """Return the gateway device of this sub device."""
+        if not self._node_id or (gateway := self.gateway) is None:
+            return None  # Should never happen
 
-            if self.connected or self.is_sleep:
-                self._task_shutdown_entities = None
-                return
-
-        signal = f"localtuya_{self._device_config.id}"
-        dispatcher_send(self._hass, signal, None)
-
-        if self.is_closing:
-            return
-
-        if self.is_subdevice:
-            self.warning(f"Sub-device unavailable due to: {exc}")
-        elif hasattr(self, "low_power"):
-            m, s = divmod((int(time.monotonic()) - self._last_update_time), 60)
-            h, m = divmod(m, 60)
-            self.warning(f"Unavailable due to out of reach for: {h}h:{m}m:{s}s")
+        # Ensure that sub-device still on the same gateway device.
+        if gateway._local_key != self._local_key:
+            if self.subdevice_state != SubdeviceState.ABSENT:
+                self.warning("Sub-device localkey doesn't match the gateway localkey")
+                # This will become ONLINE after successful connect
+                self.subdevice_state = SubdeviceState.ABSENT
+            return None
         else:
-            self.warning(f"Unavailable due to: {exc}")
-
-        self._task_shutdown_entities = None
+            return gateway
 
     @callback
     def status_updated(self, status: dict):
@@ -697,24 +718,3 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                 self.warning(f"Sub-device is offline {node_id}")
             elif off_count == MIN_OFFLINE_EVENTS:
                 self.disconnected("Device is offline")
-
-    def filter_subdevices(self):
-        """Remove closed subdevices that are closed."""
-        self.sub_devices = dict(
-            filter(lambda dev: not dev[1].is_closing, self.sub_devices.items())
-        )
-
-    def _get_gateway(self):
-        """Return the gateway device of this sub device."""
-        if not self._node_id or (gateway := self.gateway) is None:
-            return None  # Should never happen
-
-        # Ensure that sub-device still on the same gateway device.
-        if gateway._local_key != self._local_key:
-            if self.subdevice_state != SubdeviceState.ABSENT:
-                self.warning("Sub-device localkey doesn't match the gateway localkey")
-                # This will become ONLINE after successful connect
-                self.subdevice_state = SubdeviceState.ABSENT
-            return None
-        else:
-            return gateway
