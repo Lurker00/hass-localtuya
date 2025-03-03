@@ -138,13 +138,12 @@ class TuyaDevice(TuyaListener, ContextualLogger):
     @property
     def is_sleep(self):
         """Return whether the device is sleep or not."""
-        device_sleep = self._device_config.sleep_time
-        if device_sleep > 0:
+        if (device_sleep := self._device_config.sleep_time) > 0:
             setattr(self, "low_power", True)
             last_update = int(time.monotonic()) - self._last_update_time
             return last_update < device_sleep
-        else:
-            return False
+
+        return False
 
     @property
     def is_write_only(self):
@@ -663,8 +662,8 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         if self._fake_gateway:
             # Fake gateways are only used to pass commands no need to update status.
             return
-        self._last_update_time = int(time.monotonic())
 
+        self._last_update_time = int(time.monotonic())
         self._handle_event(self._status, status)
         self._status.update(status)
         self._dispatch_status()
@@ -720,7 +719,7 @@ class TuyaDevice(TuyaListener, ContextualLogger):
                 else:
                     self.info(f"Sub-device is absent for {round(delay,3)}s")
             else:
-                # Can be false alarm!
+                # Can be false alarm! Do nothing!
                 delay = time.monotonic() - self._last_update_time
                 self.info(f"Sub-device may be absent for {round(delay,3)}s")
             return
