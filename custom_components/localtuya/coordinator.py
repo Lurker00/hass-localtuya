@@ -711,12 +711,18 @@ class TuyaDevice(TuyaListener, ContextualLogger):
         self.subdevice_state = state
 
         # This will trigger if state is absent twice.
-        if old_state == state and state == SubdeviceState.ABSENT:
-            if time.monotonic() - self._last_update_time >= 2 * HEARTBEAT_INTERVAL:
-                self._subdevice_off_count = 0
-                self.disconnected("Device is absent")
-            return
-        elif state == SubdeviceState.ABSENT:
+        if state == SubdeviceState.ABSENT:
+            if old_state == state:
+                delay = time.monotonic() - self._last_update_time
+                if delay >= 2 * HEARTBEAT_INTERVAL:
+                    self._subdevice_off_count = 0
+                    self.disconnected("Device is absent")
+                else:
+                    self.info(f"Sub-device is absent for {round(delay,3)}s")
+            else:
+                # Can be false alarm!
+                delay = time.monotonic() - self._last_update_time
+                self.info(f"Sub-device may be absent for {round(delay,3)}s")
             return
         elif old_state == SubdeviceState.ABSENT and not self.connected:
             self.info(f"Sub-device is back {node_id}")
