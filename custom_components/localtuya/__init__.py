@@ -188,7 +188,7 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     new_version = ENTRIES_VERSION
     stored_entries = hass.config_entries.async_entries(DOMAIN)
     if config_entry.version == 1:
-        # This an old version of original integration no nned to put it here.
+        # This an old version of original integration no need to put it here.
         pass
     # Update to version 3
     if config_entry.version == 2:
@@ -323,7 +323,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     def _setup_devices(entry_devices: dict):
         """Setup Localtuya devices object."""
         devices = hass_localtuya.devices
-        connect_to_devices = []
+        connect_to_devices: list[TuyaDevice] = []
 
         # Sort parent devices first then sub-devices.
         sorted_devices = dict(
@@ -371,28 +371,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     async def _shutdown(event):
         """Clean up resources when shutting down."""
-        _LOGGER.info("Shutdown started")
-        for dev in connect_to_devices:
-            await dev.close()
-        _LOGGER.info("Shutdown completed")
+        _LOGGER.info(f"{entry.title}: Shutdown started")
+        await asyncio.gather(*[dev.close() for dev in connect_to_devices])
+        _LOGGER.info(f"{entry.title}: Shutdown completed")
 
     entry.async_on_unload(
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _shutdown)
     )
 
     entry.async_on_unload(_run_async_listen(hass, entry))
-    _LOGGER.info("Setup completed")
+    _LOGGER.info(f"{entry.title}: Setup completed")
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unloading the Tuya platforms."""
     # Unload the platforms.
-    _LOGGER.info("Unload started")
+    _LOGGER.info(f"{entry.title}: Unload started")
     await hass.config_entries.async_unload_platforms(entry, PLATFORMS.values())
     hass.data[DOMAIN].pop(entry.entry_id)
 
-    _LOGGER.info("Unload completed")
+    _LOGGER.info(f"{entry.title}: Unload completed")
     return True
 
 
@@ -538,9 +537,9 @@ def check_if_device_disabled(hass: HomeAssistant, entry: ConfigEntry, dev_id: st
     entries = er.async_entries_for_config_entry(ent_reg, entry.entry_id)
     ha_device_id: str = None
 
-    for entitiy in entries:
-        if dev_id in entitiy.unique_id:
-            ha_device_id = entitiy.device_id
+    for entity in entries:
+        if dev_id in entity.unique_id:
+            ha_device_id = entity.device_id
             break
 
     if ha_device_id and (device := dr.async_get(hass).async_get(ha_device_id)):

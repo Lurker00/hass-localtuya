@@ -847,7 +847,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
 
         async def _action(on_devs, off_devs):
             try:
-                self.debug(f"Sub-Devices States Update: on_devs={on_devs} off_devs={off_devs}")
+                self.debug(f"Sub-Devices States Update: {on_devs=} {off_devs=}")
                 listener = self.listener and self.listener()
                 if listener is None:
                     return
@@ -954,7 +954,7 @@ class TuyaProtocol(asyncio.Protocol, ContextualLogger):
                 # Adjusts sleep time to maintain the heartbeat interval
                 delta = (time.monotonic() - start) - HEARTBEAT_INTERVAL
                 if delta > (11-HEARTBEAT_INTERVAL):
-                    self.info(f"Delta {round(delta, 3)} fails {fail_attempt}")
+                    self.info(f"Delta {delta:.03f} fails {fail_attempt}")
                 delta = max(0, min(delta, HEARTBEAT_INTERVAL))
 
             self.heartbeater = None
